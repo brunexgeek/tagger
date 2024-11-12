@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/brunexkgeek/tagger/internal/server"
 )
 
 type FileTags struct {
@@ -111,7 +113,9 @@ func searchByTag(db Database, tag string) []string {
 func help() {
 	fmt.Println("Usage: tagger --add <path> <tag1> [tag2] ... [tagN]")
 	fmt.Println("       tagger --tag <tag> <path1> [path2] ... [pathN]")
-	fmt.Println("       tagger --list <tag>")
+	fmt.Println("       tagger --find <tag>")
+	fmt.Println("       tagger --status <path>")
+	fmt.Println("       tagger --list")
 }
 
 func expandPath(root string, path string) (string, error) {
@@ -131,7 +135,7 @@ func expandPath(root string, path string) (string, error) {
 }
 
 func main() {
-	if len(os.Args) < 3 {
+	if len(os.Args) < 2 {
 		help()
 		return
 	}
@@ -155,7 +159,9 @@ func main() {
 		return
 	}
 
-	if operation == "--list" {
+	if operation == "--server" {
+		server.Serve("/home/bruno/.cache/thumbnails/normal")
+	} else if operation == "--find" {
 		tag := os.Args[2]
 		results := searchByTag(db, tag)
 		if len(results) == 0 {
@@ -164,6 +170,32 @@ func main() {
 			fmt.Printf("Files with tag '%s':\n", tag)
 			for _, path := range results {
 				fmt.Println("  ", filepath.Join(root, path))
+			}
+		}
+	} else if operation == "--list" {
+		fmt.Println("Existing tags:")
+		for tag := range db.TagsByName {
+			fmt.Println("  ", tag)
+		}
+	} else if operation == "--status" {
+		filename, err := expandPath(root, os.Args[2])
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		entry := db.Entries[filename]
+		if entry == nil {
+			fmt.Println("File not tagged")
+		} else {
+			fmt.Printf("Existing tags for '%s':\n", filename)
+			for _, tag := range entry.Tags {
+				tagName, ok := db.Tags[tag]
+				if !ok {
+					fmt.Println("  ", tag)
+				} else {
+					fmt.Println("  ", tagName)
+				}
 			}
 		}
 	} else if operation == "--add" {
